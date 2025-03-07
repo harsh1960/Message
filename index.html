@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #chat-box { width: 90%; max-width: 500px; height: 400px; border: 1px solid #ccc; overflow-y: scroll; margin: auto; padding: 10px; background: #f9f9f9; }
+        .message { padding: 8px; margin: 5px; border-radius: 5px; max-width: 70%; }
+        .user-msg { background: #dcf8c6; text-align: right; margin-left: auto; }
+        .other-msg { background: #fff; text-align: left; margin-right: auto; }
+        .username { font-size: 12px; color: gray; }
+        #msg-input { width: 70%; padding: 8px; }
+        #send-btn { padding: 8px; }
+    </style>
+</head>
+<body>
+    <h2>Simple Chat App</h2>
+    <div id="chat-box"></div>
+    <input type="text" id="msg-input" placeholder="Type a message...">
+    <button id="send-btn">Send</button>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCDOU1jUzrLmY_Fiam1kuneZiS6nQTm19A",
+            authDomain: "message-45002.firebaseapp.com",
+            projectId: "message-45002",
+            storageBucket: "message-45002.firebasestorage.app",
+            messagingSenderId: "385097365960",
+            appId: "1:385097365960:web:5719be0051ba9aa46ea8fd"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const messagesRef = collection(db, "messages");
+
+        // Assign a unique username (User1, User2, etc.)
+        let username = localStorage.getItem("username");
+        if (!username) {
+            async function assignUsername() {
+                const snapshot = await getDocs(messagesRef);
+                let userCount = new Set();
+                snapshot.forEach((doc) => {
+                    userCount.add(doc.data().username);
+                });
+                username = `User${userCount.size + 1}`;
+                localStorage.setItem("username", username);
+            }
+            assignUsername();
+        }
+
+        // Send Message
+        document.getElementById("send-btn").addEventListener("click", async () => {
+            const msgInput = document.getElementById("msg-input");
+            if (msgInput.value.trim() !== "") {
+                await addDoc(messagesRef, {
+                    text: msgInput.value,
+                    username: username,
+                    timestamp: new Date()
+                });
+                msgInput.value = "";
+            }
+        });
+
+        // Load Messages in Real-Time
+        const chatBox = document.getElementById("chat-box");
+        const q = query(messagesRef, orderBy("timestamp"));
+
+        onSnapshot(q, (snapshot) => {
+            chatBox.innerHTML = "";
+            snapshot.forEach((doc) => {
+                let msgData = doc.data();
+                let msgDiv = document.createElement("div");
+                msgDiv.classList.add("message");
+
+                // Differentiate messages
+                if (msgData.username === username) {
+                    msgDiv.classList.add("user-msg");
+                } else {
+                    msgDiv.classList.add("other-msg");
+                }
+
+                msgDiv.innerHTML = `<div class="username">${msgData.username}</div>${msgData.text}`;
+                chatBox.appendChild(msgDiv);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+    </script>
+</body>
+</html>
