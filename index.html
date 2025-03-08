@@ -5,29 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat App</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #chat-box { width: 90%; max-width: 500px; height: 400px; border: 1px solid #ccc; overflow-y: scroll; margin: auto; padding: 10px; background: #f9f9f9; }
-        .message { padding: 8px; margin: 5px; border-radius: 5px; max-width: 70%; }
-        .user-msg { background: #dcf8c6; text-align: right; margin-left: auto; }
-        .other-msg { background: #fff; text-align: left; margin-right: auto; }
-        .username { font-size: 12px; color: gray; }
-        #msg-input { width: 70%; padding: 8px; }
-        #send-btn { padding: 8px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background: #121212; color: white; text-align: center; display: flex; flex-direction: column; height: 100vh; }
+
+        /* Header with Username */
+        #header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #1E1E1E; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
+        #username-container { display: flex; align-items: center; font-size: 18px; }
+        #edit-username { cursor: pointer; margin-left: 8px; font-size: 16px; color: #FFD700; transition: 0.3s; }
+        #edit-username:hover { color: #FFA500; }
+        #username-input, #save-username-btn { display: none; }
+
+        /* Chat Box */
+        #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 75%; padding: 10px; border-radius: 8px; display: inline-block; animation: fadeIn 0.3s ease-in-out; }
+        .user-msg { background: #25D366; color: white; align-self: flex-end; border-bottom-right-radius: 0; }
+        .other-msg { background: #333; color: white; align-self: flex-start; border-bottom-left-radius: 0; }
+        .username { font-size: 12px; margin-bottom: 5px; display: block; font-weight: bold; }
+
+        /* Message Input Bar */
+        #input-bar { display: flex; align-items: center; padding: 10px; background: #1E1E1E; box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3); }
+        #msg-input { flex: 1; padding: 10px; border: none; border-radius: 25px; outline: none; font-size: 16px; background: #2E2E2E; color: white; margin-right: 10px; }
+        #send-btn { padding: 10px 15px; border: none; border-radius: 50%; background: #25D366; color: white; font-size: 18px; cursor: pointer; transition: 0.3s; }
+        #send-btn:hover { background: #1EBB5C; }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
-    <h2>Simple Chat App</h2>
+
+    <!-- Header -->
+    <div id="header">
+        <div id="username-container">
+            <span id="username-display"></span>
+            <span id="edit-username">✏️</span>
+            <input type="text" id="username-input" placeholder="Enter new username">
+            <button id="save-username-btn">✔️</button>
+        </div>
+    </div>
+
+    <!-- Chat Box -->
     <div id="chat-box"></div>
-    <input type="text" id="msg-input" placeholder="Type a message...">
-    <button id="send-btn">Send</button>
+
+    <!-- Message Input -->
+    <div id="input-bar">
+        <input type="text" id="msg-input" placeholder="Type a message...">
+        <button id="send-btn">➤</button>
+    </div>
 
     <!-- Firebase SDK -->
     <script type="module">
-        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
-        // Your Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCDOU1jUzrLmY_Fiam1kuneZiS6nQTm19A",
             authDomain: "message-45002.firebaseapp.com",
@@ -37,27 +70,72 @@
             appId: "1:385097365960:web:5719be0051ba9aa46ea8fd"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const messagesRef = collection(db, "messages");
 
-        // Assign a unique username (User1, User2, etc.)
         let username = localStorage.getItem("username");
         if (!username) {
-            async function assignUsername() {
-                const snapshot = await getDocs(messagesRef);
-                let userCount = new Set();
-                snapshot.forEach((doc) => {
-                    userCount.add(doc.data().username);
-                });
-                username = `User${userCount.size + 1}`;
-                localStorage.setItem("username", username);
-            }
-            assignUsername();
+            username = "User" + Math.floor(Math.random() * 1000);
+            localStorage.setItem("username", username);
         }
 
-        // Send Message
+        function getUsernameColor(username) {
+            let colors = ["#FF5733", "#33FF57", "#5733FF", "#FFD700", "#00FFFF", "#FF00FF", "#FF4500", "#008000"];
+            let storedColors = JSON.parse(localStorage.getItem("usernameColors")) || {};
+            
+            if (!storedColors[username]) {
+                storedColors[username] = colors[Math.floor(Math.random() * colors.length)];
+                localStorage.setItem("usernameColors", JSON.stringify(storedColors));
+            }
+            
+            return storedColors[username];
+        }
+
+        const usernameDisplay = document.getElementById("username-display");
+        const editUsername = document.getElementById("edit-username");
+        const usernameInput = document.getElementById("username-input");
+        const saveUsernameBtn = document.getElementById("save-username-btn");
+
+        function updateUsernameDisplay() {
+            usernameDisplay.innerText = username;
+            usernameDisplay.style.color = getUsernameColor(username);
+        }
+        updateUsernameDisplay();
+
+        saveUsernameBtn.addEventListener("click", async () => {
+            let newUsername = usernameInput.value.trim();
+            if (newUsername !== "" && newUsername !== username) {
+                let oldUsername = username;
+                username = newUsername;
+                localStorage.setItem("username", username);
+                updateUsernameDisplay();
+
+                const q = query(messagesRef, orderBy("timestamp"));
+                const snapshot = await getDocs(q);
+                snapshot.forEach(async (doc) => {
+                    let msgData = doc.data();
+                    if (msgData.username === oldUsername) {
+                        await updateDoc(doc.ref, { username: newUsername });
+                    }
+                });
+
+                alert("Username updated in all messages!");
+            }
+            usernameDisplay.style.display = "inline";
+            editUsername.style.display = "inline";
+            usernameInput.style.display = "none";
+            saveUsernameBtn.style.display = "none";
+        });
+
+        editUsername.addEventListener("click", () => {
+            usernameDisplay.style.display = "none";
+            editUsername.style.display = "none";
+            usernameInput.style.display = "inline";
+            saveUsernameBtn.style.display = "inline";
+            usernameInput.value = username;
+        });
+
         document.getElementById("send-btn").addEventListener("click", async () => {
             const msgInput = document.getElementById("msg-input");
             if (msgInput.value.trim() !== "") {
@@ -70,7 +148,6 @@
             }
         });
 
-        // Load Messages in Real-Time
         const chatBox = document.getElementById("chat-box");
         const q = query(messagesRef, orderBy("timestamp"));
 
@@ -81,18 +158,19 @@
                 let msgDiv = document.createElement("div");
                 msgDiv.classList.add("message");
 
-                // Differentiate messages
                 if (msgData.username === username) {
                     msgDiv.classList.add("user-msg");
                 } else {
                     msgDiv.classList.add("other-msg");
                 }
 
-                msgDiv.innerHTML = `<div class="username">${msgData.username}</div>${msgData.text}`;
+                let userColor = getUsernameColor(msgData.username);
+                msgDiv.innerHTML = `<span class="username" style="color: ${userColor};">${msgData.username}</span>${msgData.text}`;
                 chatBox.appendChild(msgDiv);
             });
             chatBox.scrollTop = chatBox.scrollHeight;
         });
+
     </script>
 </body>
 </html>
